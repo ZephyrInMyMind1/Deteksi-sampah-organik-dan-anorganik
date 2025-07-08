@@ -189,13 +189,13 @@ if page == "🏠 Beranda":
             # Use images from your folder
             default_image_path = "images/sebelumdeteksi.jpg"
             default_image = PIL.Image.open(default_image_path)
-            st.image(default_image_path, caption="📷 Gambar Asli", use_column_width=True)
+            st.image(default_image_path, caption="📷 Gambar Asli", use_container_width=True)
         except:
             # Fallback to settings default image if available
             try:
                 default_image_path = str(settings.DEFAULT_IMAGE)
                 default_image = PIL.Image.open(default_image_path)
-                st.image(default_image_path, caption="📷 Gambar Asli", use_column_width=True)
+                st.image(default_image_path, caption="📷 Gambar Asli", use_container_width=True)
             except:
                 st.info("Gambar contoh tidak tersedia")
     
@@ -204,13 +204,13 @@ if page == "🏠 Beranda":
             # Use images from your folder
             default_detected_image_path = "images/hasildeteksi.jpg"
             default_detected_image = PIL.Image.open(default_detected_image_path)
-            st.image(default_detected_image_path, caption="🎯 Hasil Deteksi YOLOv11", use_column_width=True)
+            st.image(default_detected_image_path, caption="🎯 Hasil Deteksi YOLOv11", use_container_width=True)
         except:
             # Fallback to settings default detected image if available
             try:
                 default_detected_image_path = str(settings.DEFAULT_DETECT_IMAGE)
                 default_detected_image = PIL.Image.open(default_detected_image_path)
-                st.image(default_detected_image_path, caption="🎯 Hasil Deteksi YOLOv11", use_column_width=True)
+                st.image(default_detected_image_path, caption="🎯 Hasil Deteksi YOLOv11", use_container_width=True)
             except:
                 st.info("Gambar hasil deteksi tidak tersedia")
 
@@ -232,7 +232,7 @@ if page == "🏠 Beranda":
     try:
         biodegradable_image = PIL.Image.open("images/biodegradable.jpg")
         resized_bio = resize_to_fixed_height(biodegradable_image, 200)
-        st.image(resized_bio, caption="Contoh Sampah Biodegradable", use_column_width=False)
+        st.image(resized_bio, caption="Contoh Sampah Biodegradable", use_container_width=False)
     except Exception as e:
         st.info("📷 Gambar contoh tidak tersedia")
 
@@ -253,7 +253,7 @@ if page == "🏠 Beranda":
     try:
         paper_image = PIL.Image.open("images/kertas.jpg")
         resized_paper = resize_to_fixed_height(paper_image, 200)
-        st.image(resized_paper, caption="Contoh Sampah Kertas", use_column_width=False)
+        st.image(resized_paper, caption="Contoh Sampah Kertas", use_container_width=False)
     except Exception as e:
         st.info("📷 Gambar contoh tidak tersedia")
 
@@ -281,7 +281,7 @@ if page == "🏠 Beranda":
     try:
         can_image = PIL.Image.open("images/kaleng.jpeg")
         resized_can = resize_to_fixed_height(can_image, 200)
-        st.image(resized_can, caption="Contoh Kaleng Minuman Anorganik", use_column_width=False)
+        st.image(resized_can, caption="Contoh Kaleng Minuman Anorganik", use_container_width=False)
     except Exception as e:
         st.info("📷 Gambar contoh tidak tersedia")
 
@@ -302,7 +302,7 @@ if page == "🏠 Beranda":
     try:
         glass_image = PIL.Image.open("images/kaca.jpg")
         resized_glass = resize_to_fixed_height(glass_image, 200)
-        st.image(resized_glass, caption="Contoh Sampah Kaca", use_column_width=False)
+        st.image(resized_glass, caption="Contoh Sampah Kaca", use_container_width=False)
     except Exception as e:
         st.info("📷 Gambar contoh tidak tersedia")
 
@@ -323,7 +323,7 @@ if page == "🏠 Beranda":
     try:
         bottle_image = PIL.Image.open("images/botol.jpg")
         resized_bottle = resize_to_fixed_height(bottle_image, 200)
-        st.image(resized_bottle, caption="Contoh Botol Plastik", use_column_width=False)
+        st.image(resized_bottle, caption="Contoh Botol Plastik", use_container_width=False)
     except Exception as e:
         st.info("📷 Gambar contoh tidak tersedia")
 
@@ -368,10 +368,10 @@ elif page == "🔍 Deteksi":
                 if source_img is None:
                     default_image_path = str(settings.DEFAULT_IMAGE)
                     default_image = PIL.Image.open(default_image_path)
-                    st.image(default_image_path, caption="Gambar Default", use_column_width=True)
+                    st.image(default_image_path, caption="Gambar Default", use_container_width=True)
                 else:
                     uploaded_image = PIL.Image.open(source_img)
-                    st.image(source_img, caption="Gambar yang Diupload", use_column_width=True)
+                    st.image(source_img, caption="Gambar yang Diupload", use_container_width=True)
             except Exception as ex:
                 st.error("Error terjadi saat membuka gambar.")
                 st.error(ex)
@@ -380,14 +380,14 @@ elif page == "🔍 Deteksi":
             if source_img is None:
                 default_detected_image_path = str(settings.DEFAULT_DETECT_IMAGE)
                 default_detected_image = PIL.Image.open(default_detected_image_path)
-                st.image(default_detected_image_path, caption='Gambar Terdeteksi', use_column_width=True)
+                st.image(default_detected_image_path, caption='Gambar Terdeteksi', use_container_width=True)
             else:
                 if st.sidebar.button('Deteksi Objek'):
                     try:
                         res = model.predict(uploaded_image, conf=confidence)
                         boxes = res[0].boxes
                         res_plotted = res[0].plot()[:, :, ::-1]
-                        st.image(res_plotted, caption='Gambar Terdeteksi', use_column_width=True)
+                        st.image(res_plotted, caption='Gambar Terdeteksi', use_container_width=True)
 
                         # Display detected waste types prominently
                         st.markdown("---")
