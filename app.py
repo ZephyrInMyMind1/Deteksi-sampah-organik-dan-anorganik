@@ -464,13 +464,46 @@ elif page == "📚 Riwayat":
     with col2:
         if st.button("🗑️ Hapus Semua Riwayat", type="secondary"):
             if st.session_state.get('confirm_delete', False):
-                # Clear all history
-                st.session_state.clear()
-                st.success("✅ Riwayat berhasil dihapus!")
-                st.session_state['confirm_delete'] = False
+                try:
+                    # Get all history records first
+                    history = helper.get_detection_history()
+                    
+                    # Delete all records one by one
+                    deleted_count = 0
+                    for record in history:
+                        try:
+                            helper.delete_detection_record(record.id)
+                            deleted_count += 1
+                        except Exception as delete_error:
+                            st.warning(f"Gagal menghapus record ID {record.id}: {delete_error}")
+                    
+                    # Reset confirmation state
+                    st.session_state['confirm_delete'] = False
+                    
+                    # Clear any history-related session state but keep other important states
+                    history_keys = [key for key in st.session_state.keys() if 'history' in key.lower() or 'detection' in key.lower()]
+                    for key in history_keys:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    if deleted_count > 0:
+                        st.success(f"✅ Berhasil menghapus {deleted_count} riwayat!")
+                    else:
+                        st.info("ℹ️ Tidak ada riwayat yang dihapus.")
+                    
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error menghapus semua riwayat: {e}")
+                    st.session_state['confirm_delete'] = False
             else:
                 st.session_state['confirm_delete'] = True
-                st.warning("⚠️ Klik sekali lagi untuk konfirmasi penghapusan")
+                st.warning("⚠️ Klik sekali lagi untuk konfirmasi penghapusan semua riwayat")
+        
+        # Reset confirmation if user doesn't confirm within reasonable time
+        if st.session_state.get('confirm_delete', False):
+            if st.button("❌ Batal", type="secondary"):
+                st.session_state['confirm_delete'] = False
+                st.rerun()
     
     try:
         history = helper.get_detection_history()
