@@ -349,43 +349,83 @@ def play_webcam_bisindo(conf, model):
             else:
                 st.info("📊 Belum ada deteksi. Tunjukkan sampah ke kamera!")
 
-# Alias for new function name
-def play_webcam_waste_detection(conf, model):
-    """New function name - same as play_webcam_bisindo"""
-    return play_webcam_bisindo(conf, model)
-
 def save_detection(source_type, source_path, detected_image):
     from datetime import datetime
     db = SessionLocal()
-    new_record = DetectionHistory(
-        source_type=source_type,
-        source_path=source_path,
-        detected_image=detected_image,
-        timestamp=datetime.now()  # Add real timestamp
-    )
-    db.add(new_record)
-    db.commit()
-    db.close()
+    try:
+        new_record = DetectionHistory(
+            source_type=source_type,
+            source_path=source_path,
+            detected_image=detected_image,
+            timestamp=datetime.now()  # Add real timestamp
+        )
+        db.add(new_record)
+        db.commit()
+        return new_record.id
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
 
 def get_detection_history():
     db = SessionLocal()
-    # Order by timestamp descending (latest first)
-    history = db.query(DetectionHistory).order_by(DetectionHistory.timestamp.desc()).all()
-    db.close()
-    return history
-
-def delete_detection_record(record_id):
-    engine = create_engine(settings.DATABASE_URL)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
     try:
-        record = session.query(DetectionHistory).get(record_id)
-        if record:
-            session.delete(record)
-            session.commit()
+        # Order by timestamp descending (latest first)
+        history = db.query(DetectionHistory).order_by(DetectionHistory.timestamp.desc()).all()
+        return history
     except Exception as e:
-        session.rollback()
         raise e
     finally:
-        session.close()
+        db.close()
+
+def delete_detection_record(record_id):
+    db = SessionLocal()
+    try:
+        record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
+        if record:
+            db.delete(record)
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+def clear_all_detection_history():
+    """Clear all detection history from database"""
+    db = SessionLocal()
+    try:
+        # Delete all records
+        deleted_count = db.query(DetectionHistory).delete()
+        db.commit()
+        return deleted_count
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
+def get_detection_count():
+    """Get total number of detection records"""
+    db = SessionLocal()
+    try:
+        count = db.query(DetectionHistory).count()
+        return count
+    except Exception as e:
+        raise e
+    finally:
+        db.close()
+
+def get_detection_by_id(record_id):
+    """Get single detection record by ID"""
+    db = SessionLocal()
+    try:
+        record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
+        return record
+    except Exception as e:
+        raise e
+    finally:
+        db.close()
