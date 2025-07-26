@@ -282,7 +282,6 @@ def play_webcam_bisindo(conf, model):
         st.markdown("""
         **Jika webcam tidak muncul:**
         - ✅ Pastikan browser memberikan izin akses kamera
-        - ✅ Jalankan di `localhost:8501` (bukan IP address)
         - ✅ Refresh halaman jika loading terlalu lama
         - ✅ Coba browser lain (Chrome/Firefox recommended)
         - ✅ Tutup aplikasi lain yang menggunakan kamera
