@@ -383,69 +383,121 @@ elif page == "🔍 Deteksi":
                 st.image(default_detected_image_path, caption='Gambar Terdeteksi', use_container_width=True)
             else:
                 if st.sidebar.button('Deteksi Objek'):
-                    try:
-                        res = model.predict(uploaded_image, conf=confidence)
-                        boxes = res[0].boxes
-                        res_plotted = res[0].plot()[:, :, ::-1]
-                        st.image(res_plotted, caption='Gambar Terdeteksi', use_container_width=True)
-
-                        # Display detected waste types prominently
-                        st.markdown("---")
-                        st.markdown("### ♻️ Jenis Sampah yang Terdeteksi:")
-                        
-                        if boxes:
-                            detected_waste = []
-                            for box in boxes:
-                                class_id = int(box.cls)
-                                class_name = model.names[class_id]
-                                conf_value = float(box.conf)
-                                detected_waste.append({
-                                    'name': class_name,
-                                    'confidence': conf_value
-                                })
-                            
-                            # Sort by confidence (highest first)
-                            detected_waste.sort(key=lambda x: x['confidence'], reverse=True)
-                            
-                            # Display each detected waste with color coding
-                            for waste in detected_waste:
-                                if waste['confidence'] > 0.8:
-                                    st.success(f"🟢 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
-                                elif waste['confidence'] > 0.6:
-                                    st.warning(f"🟡 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
-                                else:
-                                    st.info(f"🟠 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
-                            
-                            # Create a sequence from detected waste
-                            if len(detected_waste) > 0:
-                                sequence = " + ".join([waste['name'].upper() for waste in detected_waste])
-                                st.markdown(f"**Urutan Terdeteksi:** {sequence}")
-                        else:
-                            st.info("🗑️ Tidak ada sampah yang terdeteksi dalam gambar ini")
-
-                        # Save detection result
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
-                            PIL.Image.fromarray(res_plotted).save(tmpfile.name)
-                            with open(tmpfile.name, "rb") as file:
-                                detected_image = file.read()
-                                helper.save_detection("Image", source_img.name, detected_image)
-
+                    with st.spinner('🔍 Memproses deteksi...'):
                         try:
-                            with st.expander("📊 Hasil Deteksi Detail"):
-                                if boxes:
-                                    for i, box in enumerate(boxes):
-                                        class_id = int(box.cls)
-                                        class_name = model.names[class_id]
-                                        conf_value = float(box.conf)
-                                        st.write(f"Deteksi {i+1}: **{class_name}** - Kepercayaan: {conf_value:.4f}")
-                                else:
-                                    st.write("Tidak ada objek yang terdeteksi.")
-                        except Exception as ex:
-                            st.error("Error memproses hasil deteksi.")
-                            st.error(ex)
-                    except Exception as ex:
-                        st.error("Error menjalankan deteksi.")
-                        st.error(ex)
+                            res = model.predict(uploaded_image, conf=confidence)
+                            boxes = res[0].boxes
+                            res_plotted = res[0].plot()[:, :, ::-1]
+                            st.image(res_plotted, caption='Gambar Terdeteksi', use_container_width=True)
+
+                            # Display detected waste types prominently
+                            st.markdown("---")
+                            st.markdown("### ♻️ Jenis Sampah yang Terdeteksi:")
+                            
+                            if boxes:
+                                detected_waste = []
+                                for box in boxes:
+                                    class_id = int(box.cls)
+                                    class_name = model.names[class_id]
+                                    conf_value = float(box.conf)
+                                    detected_waste.append({
+                                        'name': class_name,
+                                        'confidence': conf_value
+                                    })
+                                
+                                # Sort by confidence (highest first)
+                                detected_waste.sort(key=lambda x: x['confidence'], reverse=True)
+                                
+                                # Display each detected waste with color coding
+                                for waste in detected_waste:
+                                    if waste['confidence'] > 0.8:
+                                        st.success(f"🟢 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
+                                    elif waste['confidence'] > 0.6:
+                                        st.warning(f"🟡 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
+                                    else:
+                                        st.info(f"🟠 **{waste['name'].upper()}** - Kepercayaan: {waste['confidence']:.2f}")
+                                
+                                # Create a sequence from detected waste
+                                if len(detected_waste) > 0:
+                                    sequence = " + ".join([waste['name'].upper() for waste in detected_waste])
+                                    st.markdown(f"**Urutan Terdeteksi:** {sequence}")
+                            else:
+                                st.info("🗑️ Tidak ada sampah yang terdeteksi dalam gambar ini")
+
+                            # Save detection result with improved error handling
+                            try:
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmpfile:
+                                    PIL.Image.fromarray(res_plotted).save(tmpfile.name)
+                                    with open(tmpfile.name, "rb") as file:
+                                        detected_image = file.read()
+                                        
+                                        # Try to save to database
+                                        saved_id = helper.save_detection("Image", source_img.name, detected_image)
+                                        
+                                        # Clean up temporary file
+                                        try:
+                                            import os
+                                            os.unlink(tmpfile.name)
+                                        except:
+                                            pass
+                                            
+                            except Exception as save_error:
+                                st.warning(f"⚠️ Deteksi berhasil, tetapi gagal menyimpan ke riwayat: {str(save_error)}")
+                                st.info("💡 Anda masih dapat melihat hasil deteksi di atas.")
+
+                            # Show detailed detection results
+                            try:
+                                with st.expander("📊 Hasil Deteksi Detail"):
+                                    if boxes:
+                                        st.markdown("**Informasi Detail per Objek:**")
+                                        for i, box in enumerate(boxes):
+                                            class_id = int(box.cls)
+                                            class_name = model.names[class_id]
+                                            conf_value = float(box.conf)
+                                            
+                                            # Get bounding box coordinates
+                                            x1, y1, x2, y2 = box.xyxy[0].tolist()
+                                            
+                                            col_detail1, col_detail2 = st.columns(2)
+                                            with col_detail1:
+                                                st.write(f"**Objek {i+1}:** {class_name}")
+                                                st.write(f"**Confidence:** {conf_value:.4f}")
+                                            with col_detail2:
+                                                st.write(f"**Posisi:** ({int(x1)}, {int(y1)}) - ({int(x2)}, {int(y2)})")
+                                                st.write(f"**Ukuran:** {int(x2-x1)} x {int(y2-y1)} px")
+                                            
+                                            st.markdown("---")
+                                    else:
+                                        st.write("🔍 Tidak ada objek yang terdeteksi dalam gambar ini.")
+                                        st.markdown("""
+                                        **Tips untuk deteksi yang lebih baik:**
+                                        - ✅ Pastikan gambar memiliki pencahayaan yang cukup
+                                        - ✅ Objek sampah terlihat jelas dan tidak terlalu kecil
+                                        - ✅ Turunkan nilai confidence jika deteksi terlalu ketat
+                                        - ✅ Coba gambar dengan latar belakang yang kontras
+                                        """)
+                            except Exception as detail_error:
+                                st.warning(f"⚠️ Error menampilkan detail: {str(detail_error)}")
+                                
+                        except Exception as detection_error:
+                            st.error(f"❌ Error saat menjalankan deteksi: {str(detection_error)}")
+                            st.markdown("""
+                            **Kemungkinan penyebab:**
+                            - 🔧 Model YOLO tidak dapat dimuat dengan benar
+                            - 📷 Format gambar tidak didukung
+                            - 💾 Memori tidak cukup untuk memproses gambar
+                            - ⚙️ Konfigurasi model bermasalah
+                            
+                            **Solusi yang bisa dicoba:**
+                            1. Restart aplikasi Streamlit
+                            2. Coba gambar dengan ukuran lebih kecil
+                            3. Pastikan file model `best.pt` ada di folder `weights/`
+                            4. Periksa log error untuk detail lebih lanjut
+                            """)
+                            
+                            # Show error details for debugging
+                            with st.expander("🔧 Detail Error (untuk debugging)"):
+                                st.code(str(detection_error))
 
     elif source_radio == settings.WEBCAM:
         # Enhanced webcam with waste detection

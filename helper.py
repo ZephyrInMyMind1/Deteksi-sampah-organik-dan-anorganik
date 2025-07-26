@@ -8,10 +8,11 @@ from sqlalchemy import create_engine
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, WebRtcMode, RTCConfiguration
 import av
 import numpy as np
-from database import DetectionHistory, SessionLocal
+from database import DetectionHistory, SessionLocal, Base, engine
 import time
 from collections import deque
 import threading
+import os
 
 model_yolo = None
 
@@ -349,83 +350,176 @@ def play_webcam_bisindo(conf, model):
             else:
                 st.info("📊 Belum ada deteksi. Tunjukkan sampah ke kamera!")
 
-def save_detection(source_type, source_path, detected_image):
-    from datetime import datetime
-    db = SessionLocal()
+def ensure_database_exists():
+    """Ensure database file exists and is writable"""
     try:
-        new_record = DetectionHistory(
-            source_type=source_type,
-            source_path=source_path,
-            detected_image=detected_image,
-            timestamp=datetime.now()  # Add real timestamp
-        )
-        db.add(new_record)
-        db.commit()
-        return new_record.id
+        # Create database file if it doesn't exist
+        db_path = "history.db"
+        if not os.path.exists(db_path):
+            # Create empty database file
+            open(db_path, 'a').close()
+            
+        # Check if file is writable
+        if not os.access(db_path, os.W_OK):
+            st.error("❌ Database file is not writable. Please check file permissions.")
+            return False
+            
+        # Create tables if they don't exist
+        Base.metadata.create_all(bind=engine)
+        return True
+        
     except Exception as e:
-        db.rollback()
-        raise e
+        st.error(f"❌ Error setting up database: {str(e)}")
+        return False
+
+def save_detection(source_type, source_path, detected_image):
+    """Save detection result to database with improved error handling"""
+    try:
+        # Ensure database is properly set up
+        if not ensure_database_exists():
+            st.warning("⚠️ Tidak dapat menyimpan ke database. Deteksi tetap akan ditampilkan.")
+            return None
+            
+        from datetime import datetime
+        db = SessionLocal()
+        
+        try:
+            new_record = DetectionHistory(
+                source_type=source_type,
+                source_path=source_path,
+                detected_image=detected_image,
+                timestamp=datetime.now()
+            )
+            db.add(new_record)
+            db.commit()
+            
+            # Get the ID of the newly created record
+            record_id = new_record.id
+            st.success(f"✅ Hasil deteksi berhasil disimpan (ID: {record_id})")
+            return record_id
+            
+        except Exception as e:
+            db.rollback()
+            st.warning(f"⚠️ Gagal menyimpan ke riwayat: {str(e)}")
+            st.info("💡 Deteksi tetap berhasil, hanya penyimpanan yang gagal.")
+            return None
+            
+    except Exception as e:
+        st.warning(f"⚠️ Error database: {str(e)}")
+        st.info("💡 Deteksi tetap akan berjalan tanpa menyimpan riwayat.")
+        return None
+        
     finally:
-        db.close()
+        try:
+            db.close()
+        except:
+            pass
 
 def get_detection_history():
-    db = SessionLocal()
+    """Get detection history with error handling"""
     try:
-        # Order by timestamp descending (latest first)
-        history = db.query(DetectionHistory).order_by(DetectionHistory.timestamp.desc()).all()
-        return history
+        if not ensure_database_exists():
+            return []
+            
+        db = SessionLocal()
+        try:
+            # Order by timestamp descending (latest first)
+            history = db.query(DetectionHistory).order_by(DetectionHistory.timestamp.desc()).all()
+            return history
+        except Exception as e:
+            st.error(f"Error loading history: {str(e)}")
+            return []
+        finally:
+            db.close()
+            
     except Exception as e:
-        raise e
-    finally:
-        db.close()
+        st.error(f"Database connection error: {str(e)}")
+        return []
 
 def delete_detection_record(record_id):
-    db = SessionLocal()
+    """Delete single detection record with error handling"""
     try:
-        record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
-        if record:
-            db.delete(record)
-            db.commit()
-            return True
-        return False
+        if not ensure_database_exists():
+            return False
+            
+        db = SessionLocal()
+        try:
+            record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
+            if record:
+                db.delete(record)
+                db.commit()
+                return True
+            return False
+        except Exception as e:
+            db.rollback()
+            st.error(f"Error deleting record: {str(e)}")
+            return False
+        finally:
+            db.close()
+            
     except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
+        st.error(f"Database connection error: {str(e)}")
+        return False
 
 def clear_all_detection_history():
-    """Clear all detection history from database"""
-    db = SessionLocal()
+    """Clear all detection history from database with error handling"""
     try:
-        # Delete all records
-        deleted_count = db.query(DetectionHistory).delete()
-        db.commit()
-        return deleted_count
+        if not ensure_database_exists():
+            return 0
+            
+        db = SessionLocal()
+        try:
+            # Delete all records
+            deleted_count = db.query(DetectionHistory).delete()
+            db.commit()
+            return deleted_count
+        except Exception as e:
+            db.rollback()
+            st.error(f"Error clearing history: {str(e)}")
+            return 0
+        finally:
+            db.close()
+            
     except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
+        st.error(f"Database connection error: {str(e)}")
+        return 0
 
 def get_detection_count():
-    """Get total number of detection records"""
-    db = SessionLocal()
+    """Get total number of detection records with error handling"""
     try:
-        count = db.query(DetectionHistory).count()
-        return count
+        if not ensure_database_exists():
+            return 0
+            
+        db = SessionLocal()
+        try:
+            count = db.query(DetectionHistory).count()
+            return count
+        except Exception as e:
+            st.error(f"Error counting records: {str(e)}")
+            return 0
+        finally:
+            db.close()
+            
     except Exception as e:
-        raise e
-    finally:
-        db.close()
+        st.error(f"Database connection error: {str(e)}")
+        return 0
 
 def get_detection_by_id(record_id):
-    """Get single detection record by ID"""
-    db = SessionLocal()
+    """Get single detection record by ID with error handling"""
     try:
-        record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
-        return record
+        if not ensure_database_exists():
+            return None
+            
+        db = SessionLocal()
+        try:
+            record = db.query(DetectionHistory).filter(DetectionHistory.id == record_id).first()
+            return record
+        except Exception as e:
+            st.error(f"Error getting record: {str(e)}")
+            return None
+        finally:
+            db.close()
+            
     except Exception as e:
-        raise e
-    finally:
-        db.close()
+        st.error(f"Database connection error: {str(e)}")
+        return None
